@@ -1,0 +1,25 @@
+Project Description:
+Sokoban: randomly generated levels
+It will be a tkinter game with random level generation, the player can play through different difficulties
+
+Competitive Analysis:
+There are many sokoban games online, but most them are made by human designers who design the levels. My project is going to randomly generate its levels randomly.
+Otherwise, my project will just be very similar to classic sokoban. Perhaps, if there is time, I may add in special features such as teleporting or block breaking.
+
+Structural Plan:
+The board is going to be generated with based on randomly putting together some premade templates. Then, the board with all of its information (goal places, player position) is going to be 
+stored in an object. Then, the current board will be passed into "data", from where tkinter can draw the visual. 
+
+Algorithmic Plan:
+The trickiest part of the project is coming up with interesting and solvable levels. This will possibly be done in making a game tree and searching the tree.
+To make sure it is solvable, the game tree will have the game played backwards.
+
+Timeline Plan:
+By next Wednesday, 25th, I want the game to be able to generate the playable board
+By 30th, I would want to complete all the tracking of moves, difficulty, and polish the visual.
+
+Version Control Plan:
+Using github to store changes and backup files.
+
+Module List:
+Maybe will use pyaudio for background music and auditory feedback if there is time. 
