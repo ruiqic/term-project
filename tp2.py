@@ -3,7 +3,7 @@ import copy
     # "p" is pathway
     # "w" is wall
     #None is no restriction for the outside
-    
+    #dadsads
     #to do
     # convert board to 2d list and make graphics
 
