@@ -140,9 +140,35 @@ def createBoard(blocks = 9):
     if not isConnected(completeBoard):
         return createBoard(blocks)
         
+    # if hasFourByThree(completeBoard):
+    #     return createBoard(blocks)
+        
     return completeBoard
             
         
+def hasFourByThree(board): #check if there is 4 by 3 empty space
+    #horizontal
+    for row in range(7):
+        for col in range(6):
+            total = 0
+            for drow in range(3):
+                for dcol in range(4):
+                    if board[drow+row][dcol+col] == "p":
+                        total += 1
+            if total == 12:
+                return True
+    #vertical
+    for row in range(6):
+        for col in range(7):
+            total = 0
+            for drow in range(4):
+                for dcol in range(3):
+                    if board[drow+row][dcol+col] == "p":
+                        total += 1
+            if total == 12:
+                return True
+    return False
+
 def isConnected(board):
     b = copy.deepcopy(board)    
     filled = False    
@@ -152,7 +178,7 @@ def isConnected(board):
                 filled = True
                 floodFill(b,row,col)
     if not filled:
-        return False # full board of walls, remake board
+        return False # full board of walls to begin with, remake board
         
     for row in range(9): #check for path after floodfill once
         for col in range(9):
@@ -160,12 +186,12 @@ def isConnected(board):
                 return False
     return True
     
-def floodFill(board, row, col):
+def floodFill(board, row, col): #cite 112 website
     if row <0 or row > 8 or col<0 or col >8:
         return #off board
-    if board[row][col] == "w":
+    if board[row][col] in ["w","b","f"]:
         return
-    board[row][col] = "w"
+    board[row][col] = "f" #f for filled in block
     floodFill(board, row+1,col)
     floodFill(board, row-1, col)
     floodFill(board, row, col+1)
