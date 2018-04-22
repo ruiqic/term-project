@@ -12,12 +12,17 @@ class Board(object):
         self.numGoalsParameter = numGoals
         self.levelParameter = level
         
-        self.difficulty = level*10 + 20 #determine difficulty based on level
+        self.difficulty = level*10 + 12 #determine difficulty based on level
         self.board = tp2.createBoard(blocks)
+        self.saveCleanBoard()
+        
         self.placeBoxes(numGoals)
         self.setupStartingGoals()
-        self.setupBoard()
+        self.setupBoard(0)
         
+    def saveCleanBoard(self):
+        self.cleanBoard = copy.deepcopy(self.board)
+    
     def placeBoxes(self, numBoxes):
         self.boxes = []
         while numBoxes >0:
@@ -42,7 +47,7 @@ class Board(object):
         elif direction == "right":
             self.boxes[boxNumber][1] += 1
     
-    def setupBoard(self):
+    def setupBoard(self, tryNewGoalsCount):
         helperBoard = copy.deepcopy(self.board)
         for row in range(9):
             for col in range(9):
@@ -68,11 +73,18 @@ class Board(object):
                 break
                 
         if self.targetBoxPositions == None:
-            print("remaking board")
             blocks = self.blocksParameter
             numGoals = self.numGoalsParameter 
             level = self.levelParameter 
-            self.__init__(blocks, numGoals,level)
+            if tryNewGoalsCount < 10:
+                print("trying new goal positions")
+                self.board = copy.deepcopy(self.cleanBoard)
+                self.placeBoxes(numGoals)
+                self.setupStartingGoals()
+                self.setupBoard(tryNewGoalsCount+1)
+            else:
+                print("remaking board")
+                self.__init__(blocks, numGoals,level)
             #remake
         
     def areSameBoxes(self, boxPositions):
@@ -196,8 +208,8 @@ class Node(object):
             else:
                 self.difficulty = self.parent.difficulty + 1
                 
-        if self.level > 2:
-            if (self.parent.parent.move == self.move == self.parent.move):
+        if self.level > 1:
+            if (self.move == self.parent.move):
                 self.difficulty -= 1
         
         # if self.level > 3:
@@ -268,7 +280,7 @@ def init(data):
     # load data.xyz as appropriate
     data.margin = 30
     data.gridSize = 40
-    data.board = Board(9,3,2)
+    data.board = Board(9,8,8)
     data.level = 1
 
 

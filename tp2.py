@@ -140,8 +140,8 @@ def createBoard(blocks = 9):
     if not isConnected(completeBoard):
         return createBoard(blocks)
         
-    # if hasFourByThree(completeBoard):
-    #     return createBoard(blocks)
+    if hasFourByThree(completeBoard):
+        return createBoard(blocks)
         
     return completeBoard
             
@@ -191,7 +191,7 @@ def floodFill(board, row, col): #cite 112 website
         return #off board
     if board[row][col] in ["w","b"]:
         return
-    board[row][col] = "w" #f for filled in block
+    board[row][col] = "w" 
     floodFill(board, row+1,col)
     floodFill(board, row-1, col)
     floodFill(board, row, col+1)
