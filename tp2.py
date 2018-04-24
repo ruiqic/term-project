@@ -189,9 +189,9 @@ def isConnected(board):
 def floodFill(board, row, col): #cite 112 website
     if row <0 or row > 8 or col<0 or col >8:
         return #off board
-    if board[row][col] in ["w","b"]:
+    if board[row][col] in ["w","b","f"]:
         return
-    board[row][col] = "w" 
+    board[row][col] = "f" 
     floodFill(board, row+1,col)
     floodFill(board, row-1, col)
     floodFill(board, row, col+1)
