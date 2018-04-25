@@ -1,0 +1,9 @@
+There was no change in the design, but there are some features that can be added in the future
+For the future: 
+Display solution
+Undo move
+Better ui
+Track number of moves
+Import images
+Audio
+Multiplayer
