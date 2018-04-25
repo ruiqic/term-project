@@ -150,6 +150,12 @@ class Board(object):
                             self.nodeDict[tupleBoxes] = newNode
                             self.getPossibleBoards(currentBoard,newNode,currentBoxes)
                   
+    def isWon(self):
+        for box in self.boxes:
+            if box != None and self.board[box[0]][box[1]] != "g":
+                return False
+        return True
+            
     def placePlayer(self):
         self.playerPosition = None
         move = self.solutionNode.move #[boxNumber, direction]
@@ -390,9 +396,13 @@ def init(data):
     # load data.xyz as appropriate
     data.margin = 30
     data.gridSize = 40
-    data.board = Board(9,5,3)
+    
+    data.levelcount = 0
+    data.level = data.levelcount//3
+    data.stage = data.level % 3
+    
+    data.board = Board(9,2+int(data.level+0.5),data.level+1)
     data.mode = "play"
-    data.level = 1
 
 
 def mousePressed(event, data):
@@ -406,7 +416,16 @@ def keyPressed(event, data):
             data.board.loadCleanBoard()
         else:
             data.board.movePlayer(event.keysym)
-            print(data.board.playerPosition)
+            if data.board.isWon():
+                data.mode = "between levels"
+    
+    if data.mode == "between levels":
+        if event.keysym == "c":
+            data.levelcount += 1
+            data.level = data.levelcount//3
+            data.stage = data.level % 3
+            data.board = Board(9,2+int(data.level*0.67),data.level+1)
+            data.mode = "play"
         
 def timerFired(data):
     pass
@@ -415,25 +434,35 @@ def redrawAll(canvas, data):
     # draw in canvas
     s = data.gridSize
     m = data.margin
-    for row in range(len(data.board.board)):
-        for col in range(len(data.board.board[0])):
-            if data.board.board[row][col]== "p":
-                color = "gray"
-            elif data.board.board[row][col] == "w":
-                color = "brown"
-            elif data.board.board[row][col] == "g":
-                color = "blue"
-            canvas.create_rectangle(m+col*s, m+row*s,
-            m+(col+1)*s, m+(row+1)*s, fill = color)
-    for box in data.board.boxes:
-        if box == None:
-            continue
-        canvas.create_oval(m+box[1]*s, m+box[0]*s, m+(box[1]+1)*s,
-        m+(box[0]+1)*s, fill = "green")
+    if data.mode == "play":
+        canvas.create_text(0,0,text = "level : %d" % (data.level+1), anchor = NW)
+        canvas.create_text(420,0,text = "stage : %d" % (data.stage+1), anchor = NE)
         
-    canvas.create_oval(m+data.board.playerPosition[1]*s, m+data.board.playerPosition[0]*s,
-    m+(data.board.playerPosition[1]+1)*s,m+(data.board.playerPosition[0]+1)*s, fill = "yellow")
+        for row in range(len(data.board.board)):
+            for col in range(len(data.board.board[0])):
+                if data.board.board[row][col]== "p":
+                    color = "gray"
+                elif data.board.board[row][col] == "w":
+                    color = "brown"
+                elif data.board.board[row][col] == "g":
+                    color = "blue"
+                canvas.create_rectangle(m+col*s, m+row*s,
+                m+(col+1)*s, m+(row+1)*s, fill = color)
+        for box in data.board.boxes:
+            if box == None:
+                continue
+            canvas.create_oval(m+box[1]*s, m+box[0]*s, m+(box[1]+1)*s,
+            m+(box[0]+1)*s, fill = "green")
+            
+        canvas.create_oval(m+data.board.playerPosition[1]*s, m+data.board.playerPosition[0]*s,
+        m+(data.board.playerPosition[1]+1)*s,m+(data.board.playerPosition[0]+1)*s, fill = "yellow")
+    
+    elif data.mode == "between levels":
+        canvas.create_text(210,210, text = "Press 'c' to continue", font = "Arial 15 bold")
         
+    # elif data.mode == "loading":
+    #     canvas.create_text(210,210, text = "Loading...", font = "Arial 15 bold")
+             
                 
 ####################################
 # use the run function as-is
