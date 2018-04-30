@@ -1,5 +1,6 @@
 # Updated Animation Starter Code #from 112 website
 
+import time
 import random
 from tkinter import *
 import tp2
@@ -11,6 +12,7 @@ class Board(object):
     def __init__(self,blocks, numGoals, level):
         #create object board based on number of 3x3 block
         self.playerMoves = []
+        self.displaySolutionIndex = None
         
         
         self.blocksParameter = blocks
@@ -250,15 +252,53 @@ class Board(object):
         self.playerPosition = pos
         self.playerMoves.pop()
         
+    def displaySolution(self):
+        self.loadCleanBoard()
+        node = self.solutionNode
+        self.solution = convertNodeToReverseList(node)
+        self.displaySolutionIndex = 0
+        self.solutionMoves = []
+        
+    def displaySolutionNextMove(self):
+        index = self.displaySolutionIndex
+        move = self.solution[index]
+        boxNumber = move[0]
+        direction = move[1]
+        currentPlayerPos = copy.copy(self.playerPosition)
+        playerPos = copy.copy(self.boxes[boxNumber])
+        self.moveBoxHelper(boxNumber,direction)
+        self.playerPosition = playerPos
+        self.displaySolutionIndex += 1
+        self.solutionMoves.append([boxNumber,direction,currentPlayerPos[0],currentPlayerPos[1]])
+        
+    def displaySolutionPrevMove(self):
+        if self.solutionMoves == []:
+            return
+        boxNumber = self.solutionMoves[-1][0]
+        direction = reverseDirection(self.solutionMoves[-1][1])
+        pos = self.solutionMoves[-1][2:4]
+        self.moveBoxHelper(boxNumber,direction)
+        self.playerPosition = pos
+        self.solutionMoves.pop()
+        self.displaySolutionIndex -= 1
+    
+    
+        
+def convertNodeToReverseList(node):
+    if node.move == "root":
+        return []
+    else:
+        direction = reverseDirection(node.move[1])
+        return [[node.move[0],direction]] + convertNodeToReverseList(node.parent)
         
 def reverseDirection(direction):
-    if direction == "Up":
+    if direction in ["Up","up"]:
         return "Down"
-    elif direction == "Down":
+    elif direction in ["Down","down"]:
         return "Up"
-    elif direction == "Left":
+    elif direction in ["Left","left"]:
         return "Right"
-    elif direction == "Right":
+    elif direction in ["Right","right"]:
         return "Left"
         
 def twoPointsConnected(currentNode, newNode, boxes, board ):
@@ -452,11 +492,24 @@ def keyPressed(event, data):
             data.board.loadCleanBoard()
         elif event.keysym == "u":
             data.board.undoMove()
+        elif event.keysym == "s":
+            data.board.displaySolution()
+            data.mode = "displaySolution"
         else:
             data.board.movePlayer(event.keysym)
             if data.board.isWon():
                 data.mode = "between levels"
     
+    if data.mode == "displaySolution":
+        if event.keysym == "n":
+            try:
+                data.board.displaySolutionNextMove()
+            except:
+                data.mode = "between levels"
+                
+        elif event.keysym == "p":
+            data.board.displaySolutionPrevMove()
+                
     if data.mode == "between levels":
         if event.keysym == "c":
             data.levelcount += 1
@@ -477,7 +530,7 @@ def redrawAll(canvas, data):
     
     
     
-    if data.mode == "play":
+    if data.mode in ["play","displaySolution"]:
         createMarginBoxes(canvas,data,s,m)
         canvas.create_text(0,0,text = "level : %d" % (data.level+1), anchor = NW)
         canvas.create_text(420,0,text = "stage : %d" % (data.stage+1), anchor = NE)
