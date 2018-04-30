@@ -10,6 +10,9 @@ import copy
 class Board(object):
     def __init__(self,blocks, numGoals, level):
         #create object board based on number of 3x3 block
+        self.playerMoves = []
+        
+        
         self.blocksParameter = blocks
         self.numGoalsParameter = numGoals
         self.levelParameter = level
@@ -29,6 +32,7 @@ class Board(object):
         self.boxes = self.cleanBoxes
         self.playerPosition = self.cleanPlayerPosition
         self.saveCleanBoard()
+        self.playerMoves = []
         
         
     def saveCleanBoard(self):
@@ -179,10 +183,10 @@ class Board(object):
     def movePlayer(self,direction): #passing in event.keysym
         currentLocation = copy.copy(self.playerPosition)
         self.movePlayerHelper(direction)
-        if not self.isValidMove(direction):
+        if not self.isValidMove(direction,currentLocation):
             self.playerPosition = currentLocation
         
-    def isValidMove(self,direction):
+    def isValidMove(self,direction, currentLocation):
         (row,col) = (self.playerPosition[0],self.playerPosition[1])
         if row <0 or row > 8 or col<0 or col >8:
             return False
@@ -190,11 +194,12 @@ class Board(object):
             return False
         if [row,col] in self.boxes:
             boxNumber = self.boxes.index([row,col])
-            if not self.moveBox(boxNumber, direction):
+            if not self.moveBox(boxNumber, direction,currentLocation):
                 return False
         return True
     
     def movePlayerHelper(self,direction): #passing in event.keysym
+    
         if direction == "Up":
             self.playerPosition[0] -=1
         elif direction == "Down":
@@ -204,13 +209,15 @@ class Board(object):
         elif direction == "Right":
             self.playerPosition[1] += 1
         
-    def moveBox(self,boxNumber, direction):
-        
+    def moveBox(self,boxNumber, direction, currentLocation):
         currentLocations = copy.deepcopy(self.boxes)
         self.moveBoxHelper(boxNumber, direction)
         if not self.isValidBoxMove(boxNumber, currentLocations):
             self.boxes = currentLocations
             return False
+        else:
+            self.playerMoves.append([boxNumber,direction,currentLocation[0],currentLocation[1]])
+            print(self.playerMoves) #############3            
         return True
     
     def isValidBoxMove(self,boxNumber, currentLocations):
@@ -232,6 +239,27 @@ class Board(object):
             self.boxes[boxNumber][1] -= 1
         elif direction == "Right":
             self.boxes[boxNumber][1] += 1
+            
+    def undoMove(self):
+        if self.playerMoves == []:
+            return
+        boxNumber = self.playerMoves[-1][0]
+        direction = reverseDirection(self.playerMoves[-1][1])
+        pos = self.playerMoves[-1][2:4]
+        self.moveBoxHelper(boxNumber,direction)
+        self.playerPosition = pos
+        self.playerMoves.pop()
+        
+        
+def reverseDirection(direction):
+    if direction == "Up":
+        return "Down"
+    elif direction == "Down":
+        return "Up"
+    elif direction == "Left":
+        return "Right"
+    elif direction == "Right":
+        return "Left"
         
 def twoPointsConnected(currentNode, newNode, boxes, board ):
     if currentNode.move == "root":
@@ -394,16 +422,24 @@ def twoEmptySpace(board, row, col, direction, boxes):
 
 def init(data):
     # load data.xyz as appropriate
-    data.margin = 30
+    importImages(data)
+    data.margin = 80
     data.gridSize = 40
     
-    data.levelcount = 0
+    data.levelcount = 24
     data.level = data.levelcount//3
-    data.stage = data.level % 3
+    data.stage = data.levelcount % 3 ###
     
     data.board = Board(9,2+int(data.level+0.5),data.level+1)
     data.mode = "play"
 
+
+def importImages(data):
+    data.playerImage = PhotoImage(file="player.gif")
+    data.wallImage = PhotoImage(file="brick.gif")
+    data.pathImage = PhotoImage(file="floor.gif")
+    data.boxImage = PhotoImage(file = "box.gif")
+    data.goalImage = PhotoImage(file = "goal.gif")
 
 def mousePressed(event, data):
     # use event.x and event.y
@@ -414,6 +450,8 @@ def keyPressed(event, data):
     if data.mode == "play":
         if event.keysym == "r":
             data.board.loadCleanBoard()
+        elif event.keysym == "u":
+            data.board.undoMove()
         else:
             data.board.movePlayer(event.keysym)
             if data.board.isWon():
@@ -434,35 +472,54 @@ def redrawAll(canvas, data):
     # draw in canvas
     s = data.gridSize
     m = data.margin
+    canvas.create_rectangle(0,0,data.width+10,data.height+10,fill="yellow2")
+    #background +10 to overcome tkinter framing issue
+    
+    
+    
     if data.mode == "play":
+        createMarginBoxes(canvas,data,s,m)
         canvas.create_text(0,0,text = "level : %d" % (data.level+1), anchor = NW)
         canvas.create_text(420,0,text = "stage : %d" % (data.stage+1), anchor = NE)
         
         for row in range(len(data.board.board)):
             for col in range(len(data.board.board[0])):
                 if data.board.board[row][col]== "p":
-                    color = "gray"
+                    canvas.create_image(m+col*s,m+row*s, image=data.pathImage,
+                    anchor = NW)
                 elif data.board.board[row][col] == "w":
-                    color = "brown"
+                    canvas.create_image(m+col*s,m+row*s, image=data.wallImage,
+                    anchor = NW)
                 elif data.board.board[row][col] == "g":
-                    color = "blue"
-                canvas.create_rectangle(m+col*s, m+row*s,
-                m+(col+1)*s, m+(row+1)*s, fill = color)
+                    canvas.create_image(m+col*s,m+row*s, image=data.goalImage,
+                    anchor = NW)
         for box in data.board.boxes:
             if box == None:
                 continue
-            canvas.create_oval(m+box[1]*s, m+box[0]*s, m+(box[1]+1)*s,
-            m+(box[0]+1)*s, fill = "green")
+            canvas.create_image(m+box[1]*s, m+box[0]*s, image=data.boxImage,
+            anchor = NW)
             
-        canvas.create_oval(m+data.board.playerPosition[1]*s, m+data.board.playerPosition[0]*s,
-        m+(data.board.playerPosition[1]+1)*s,m+(data.board.playerPosition[0]+1)*s, fill = "yellow")
+        canvas.create_image(m+data.board.playerPosition[1]*s, m+data.board.playerPosition[0]*s,
+        image=data.playerImage, anchor=NW)
     
     elif data.mode == "between levels":
         canvas.create_text(210,210, text = "Press 'c' to continue", font = "Arial 15 bold")
         
     # elif data.mode == "loading":
     #     canvas.create_text(210,210, text = "Loading...", font = "Arial 15 bold")
-             
+
+def createMarginBoxes(canvas,data,s,m):
+    m = m - 40 # one block less
+    for row in range(11):
+        for col in range(11):
+            if row==0 or col == 0 or row == 10 or col == 10:
+                    canvas.create_image(m+col*s,m+row*s, image=data.wallImage,
+                    anchor = NW)
+
+
+
+
+
                 
 ####################################
 # use the run function as-is
@@ -510,4 +567,4 @@ def run(width=300, height=300):
     root.mainloop()  # blocks until window is closed
     print("bye!")
 
-run(420, 420)
+run(720, 520)

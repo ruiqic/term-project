@@ -186,7 +186,7 @@ def isConnected(board):
                 return False
     return True
     
-def floodFill(board, row, col): #cite 112 website
+def floodFill(board, row, col): #got framework from 112 website
     if row <0 or row > 8 or col<0 or col >8:
         return #off board
     if board[row][col] in ["w","b","f"]:
