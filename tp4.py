@@ -222,7 +222,6 @@ class Board(object):
         else:
             self.playerMoveCount += 1
             self.playerMoves.append([boxNumber,direction,currentLocation[0],currentLocation[1]])
-            print(self.playerMoves) #############3            
         return True
     
     def isValidBoxMove(self,boxNumber, currentLocations):
@@ -497,13 +496,11 @@ def writeHighscores(path,data):
                 data.scores.insert(i-1,score)
                 data.scores.insert(i-1,data.playerName)
                 writeHighscoresHelper(path,data)
-                print(data.scores)
                 return
         except:
             continue
     data.scores.extend([data.playerName,score])
     writeHighscoresHelper(path,data)
-    print(data.scores)
     
 def writeHighscoresHelper(path,data):
     text = ""
@@ -527,6 +524,8 @@ def mousePressed(event, data):
             data.mode = "prePlay"
         elif event.x>= data.width/2-180 and event.x <= data.width/2+180 and event.y >=3.5*data.height/6-40-10 and event.y<=3.5*data.height/6+40-10:
             data.mode = "selectLevel"
+            data.selectedLevel = 0
+            
         elif event.x>= data.width/2-180 and event.x <= data.width/2+180 and event.y>=5*data.height/6-40-10 and event.y<=5*data.height/6+40-10:
             data.mode = "howToPlay"
     elif data.mode == "howToPlay":
@@ -552,6 +551,8 @@ def keyPressed(event, data):
             
         elif event.keysym == "2":
             data.mode = "selectLevel"
+            data.selectedLevel = 0
+            
         elif event.keysym == "3":
             data.mode = "howToPlay"
             
@@ -563,6 +564,18 @@ def keyPressed(event, data):
         elif event.keysym == "Return":
             writeHighscores("highscores.txt", data)
             data.mode = "startScreen"
+        
+    elif data.mode == "selectLevel":
+        if event.keysym == "Up" and data.selectedLevel<10:
+            data.selectedLevel += 1
+        elif event.keysym == "Down" and data.selectedLevel>0:
+            data.selectedLevel -= 1
+        elif event.keysym == "Return":
+            data.levelcount = (data.selectedLevel-1)*3
+            data.level = data.levelcount//3
+            data.stage = data.levelcount % 3 
+            data.board = Board(9,2+int(data.level*0.7),data.level+1)
+            data.mode = "playSelectLevel"
         
     elif data.mode == "prePlay":
         if event.keysym == "Return":
@@ -583,18 +596,23 @@ def keyPressed(event, data):
             data.level = data.levelcount//3
             data.stage = data.level % 3
     
-    elif data.mode == "play":
+    elif data.mode in ["play", "playSelectLevel"]:
         if event.keysym == "r":
             data.board.loadCleanBoard()
         elif event.keysym == "u":
             data.board.undoMove()
         elif event.keysym == "s":
             data.board.displaySolution()
-            data.mode = "displaySolution"
+            if data.mode == "play":
+                data.mode = "displaySolution"
+            else:
+                data.mode = "playSelectLevelSolution"
         else:
             data.board.movePlayer(event.keysym)
-            if data.board.isWon():
+            if data.board.isWon() and data. mode == "play":
                 data.mode = "between levels"
+            elif data.board.isWon() and data. mode == "playSelectLevel":
+                data.mode = "startScreen"
     
     elif data.mode == "tutorial":
         if event.keysym == "r":
@@ -609,13 +627,15 @@ def keyPressed(event, data):
             if data.board.isWon():
                 data.mode = "tutorialComplete"
     
-    elif data.mode in ["displaySolution","displaySolutionTutorial"]:
+    elif data.mode in ["displaySolution","displaySolutionTutorial", "playSelectLevelSolution"]:
         if event.keysym == "n":
             try:
                 data.board.displaySolutionNextMove()
             except:
                 if data.mode == "displaySolutionTutorial":
                     data.mode = "tutorialComplete"
+                elif data.mode == "playSelectLevelSolution":
+                    data.mode = "startScreen"
                 else:
                     data.mode = "endGame"
                     data.levelcount -= 1
@@ -666,6 +686,25 @@ def redrawAll(canvas, data):
         
         
         createMarginBoxesStart(canvas,data)
+    
+    elif data.mode == "selectLevel":
+        canvas.create_text(data.width/2,2*data.height/8, text = "Select a difficulty to generate a level", font = "fixedsys 30")
+        canvas.create_text(data.width/2,3.5*data.height/8, text = "Level %d"%data.selectedLevel, font = "fixedsys 40")
+        canvas.create_text(data.width/2,5*data.height/8, text = "Use the 'Up' and 'Down'\n keys to change levels", font = "fixedsys 30")
+        canvas.create_text(data.width/2,6*data.height/8, text = "Press 'Enter' to proceed", font = "fixedsys 30")
+        canvas.create_text(data.width/2,7*data.height/8, text = "(Harder levels take longer to generate)", font = "fixedsys 30")
+        
+    
+    elif data.mode == "highscores":
+        canvas.create_text(data.width/2,data.height/8, text = "Highscores", font = "fixedsys 35")
+        canvas.create_text(data.width/4,2*data.height/8, text = "Name", font = "fixedsys 30")
+        canvas.create_text(2.5*data.width/4,2*data.height/8, text = "Level", font = "fixedsys 30")
+        canvas.create_text(3.2*data.width/4,2*data.height/8, text = "Stage", font = "fixedsys 30")
+        for i in range(0,len(data.scores),2):
+            if i < 10:
+                canvas.create_text(data.width/4,(3+0.5*i)*data.height/8, text = data.scores[i], font = "fixedsys 30")
+                canvas.create_text(2.5*data.width/4,(3+0.5*i)*data.height/8, text = "%d"%(data.scores[i+1]//3+1), font = "fixedsys 30")
+                canvas.create_text(3.2*data.width/4,(3+0.5*i)*data.height/8, text = "%d"%(data.scores[i+1]%3+1), font = "fixedsys 30")
     
     elif data.mode == "endGame":
         if data.levelcount == -1:
@@ -735,16 +774,16 @@ def redrawAll(canvas, data):
         canvas.create_text(5*data.width/8-55, data.height/2-30, text = "R", font = "fixedsys 40", fill = "yellow2")
         canvas.create_text(5*data.width/8-55, 1.3*data.height/2-30, text = "Press 'r' to reset the\npuzzle to starting state", font = "fixedsys 21")
     
-    elif data.mode in ["play","displaySolution","tutorial","tutorialComplete","displaySolutionTutorial"]:
+    elif data.mode in ["play","displaySolution","tutorial","tutorialComplete","displaySolutionTutorial","playSelectLevel","playSelectLevelSolution"]:
         createMarginBoxes(canvas,data,s,m)
         
-        if data.mode in ["play","displaySolution"]:
+        if data.mode in ["play","displaySolution", "playSelectLevel","playSelectLevelSolution"]:
             canvas.create_text(6*data.width/8,data.height/8,text = "Level : %d" % (data.level+1), anchor = NW, font = "fixedsys 25")
-            canvas.create_text(6*data.width/8,2*data.height/8,text = "Stage : %d" % (data.stage+1), anchor = NW, font = "fixedsys 25")
             canvas.create_text(6*data.width/8,3*data.height/8,text = "Moves : %d" % (len(data.board.playerMoves)), anchor = NW, font = "fixedsys 25")
             if data.mode == "play":
+                canvas.create_text(6*data.width/8,2*data.height/8,text = "Stage : %d" % (data.stage+1), anchor = NW, font = "fixedsys 25")
                 canvas.create_text(6*data.width/8,4*data.height/8,text = "Time : %d" % (data.timeRemaining), anchor = NW, font = "fixedsys 25")
-            else:
+            elif data.mode in ["displaySolution", "playSelectLevelSolution"]:
                 t = """
                 Showing the solution
                 to the puzzle.
