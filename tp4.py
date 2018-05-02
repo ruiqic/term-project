@@ -1,5 +1,6 @@
 # Updated Animation Starter Code #from 112 website
 
+import string
 import time
 import random
 from tkinter import *
@@ -12,6 +13,7 @@ class Board(object):
     def __init__(self,blocks, numGoals, level):
         #create object board based on number of 3x3 block
         self.playerMoves = []
+        self.playerMoveCount = 0
         self.displaySolutionIndex = None
         
         
@@ -218,6 +220,7 @@ class Board(object):
             self.boxes = currentLocations
             return False
         else:
+            self.playerMoveCount += 1
             self.playerMoves.append([boxNumber,direction,currentLocation[0],currentLocation[1]])
             print(self.playerMoves) #############3            
         return True
@@ -245,6 +248,7 @@ class Board(object):
     def undoMove(self):
         if self.playerMoves == []:
             return
+        self.playerMoveCount -= 1
         boxNumber = self.playerMoves[-1][0]
         direction = reverseDirection(self.playerMoves[-1][1])
         pos = self.playerMoves[-1][2:4]
@@ -453,8 +457,14 @@ def twoEmptySpace(board, row, col, direction, boxes):
         
         
         
-        
-        
+#read and write file from 112 nots
+def readFile(path):
+    with open(path, "rt") as f:
+        return f.read()
+
+def writeFile(path, contents):
+    with open(path, "wt") as f:
+        f.write(contents)
         
 ####################################
 # customize these functions
@@ -465,14 +475,42 @@ def init(data):
     importImages(data)
     data.margin = 80
     data.gridSize = 40
-    
-    data.levelcount = 24
-    data.level = data.levelcount//3
-    data.stage = data.levelcount % 3 ###
-    
-    data.board = Board(9,2+int(data.level+0.5),data.level+1)
-    data.mode = "play"
+    data.scores = readHighscores("highscores.txt")
+    data.playerName = ""
+    data.mode = "startScreen"
 
+def readHighscores(path):
+    raw = readFile(path)
+    highscoreList = raw.split()
+    for i in range(len(highscoreList)):
+        try:
+            highscoreList[i] = int(highscoreList[i])
+        except:
+            continue
+    return highscoreList
+
+def writeHighscores(path,data):
+    score = data.levelcount
+    for i in range(len(data.scores)):
+        try:
+            if score >= data.scores[i]:
+                data.scores.insert(i-1,score)
+                data.scores.insert(i-1,data.playerName)
+                writeHighscoresHelper(path,data)
+                print(data.scores)
+                return
+        except:
+            continue
+    data.scores.extend([data.playerName,score])
+    writeHighscoresHelper(path,data)
+    print(data.scores)
+    
+def writeHighscoresHelper(path,data):
+    text = ""
+    for i in range(0,len(data.scores),2):
+        text += data.scores[i]
+        text += " " + str(data.scores[i+1]) + "\n"
+    writeFile(path, text)
 
 def importImages(data):
     data.playerImage = PhotoImage(file="player.gif")
@@ -480,14 +518,72 @@ def importImages(data):
     data.pathImage = PhotoImage(file="floor.gif")
     data.boxImage = PhotoImage(file = "box.gif")
     data.goalImage = PhotoImage(file = "goal.gif")
+    data.arrowKeysImage = PhotoImage(file = "arrowKeys.gif")
 
 def mousePressed(event, data):
     # use event.x and event.y
-    pass
+    if data.mode == "startScreen":
+        if event.x>=data.width/2-180 and event.x<=data.width/2+180 and event.y>=data.height/3-40-10 and event.y <= data.height/3+40-10:
+            data.mode = "prePlay"
+        elif event.x>= data.width/2-180 and event.x <= data.width/2+180 and event.y >=3.5*data.height/6-40-10 and event.y<=3.5*data.height/6+40-10:
+            data.mode = "selectLevel"
+        elif event.x>= data.width/2-180 and event.x <= data.width/2+180 and event.y>=5*data.height/6-40-10 and event.y<=5*data.height/6+40-10:
+            data.mode = "howToPlay"
+    elif data.mode == "howToPlay":
+        if event.x>=data.width/8-80 and event.x <=data.width/8+80 and event.y >= 7*data.height/8-60 and event.y <= 7*data.height/8+60:
+            data.mode = "highscores"
+        elif event.x >= 7*data.width/8-80 and event.x <= 7*data.width/8+80 and event.y >= 7*data.height/8-60 and event.y <= 7*data.height/8+60:
+            data.mode = "tutorial"
+            data.board = Board(4,1,0)
+            data.levelcount =0
+            data.level = data.levelcount//3
+            data.stage = data.level % 3
+            
+        elif event.x >= 7*data.width/8-80 and event.x <= 7*data.width/8+80 and event.y >= data.height/8-60 and event.y <= data.height/8+60:
+            data.mode = "startScreen"
 
 def keyPressed(event, data):
     # use event.char and event.keysym
-    if data.mode == "play":
+    if event.keysym == "Escape":
+        data.mode = "startScreen"
+    if data.mode == "startScreen":
+        if event.keysym == "1":
+            data.mode = "prePlay"
+            
+        elif event.keysym == "2":
+            data.mode = "selectLevel"
+        elif event.keysym == "3":
+            data.mode = "howToPlay"
+            
+    elif data.mode == "endGame":
+        if event.keysym in string.printable:
+            data.playerName += event.keysym
+        elif event.keysym == "BackSpace":
+            data.playerName = data.playerName[:-1]
+        elif event.keysym == "Return":
+            writeHighscores("highscores.txt", data)
+            data.mode = "startScreen"
+        
+    elif data.mode == "prePlay":
+        if event.keysym == "Return":
+            data.levelcount = 0
+            data.level = data.levelcount//3
+            data.stage = data.levelcount % 3 
+            data.board = Board(9,2+int(data.level*0.7),data.level+1)
+            data.timeRemaining = 60
+            data.mode = "play"
+    
+    elif data.mode == "howToPlay":
+        if event.keysym == "1":
+            data.mode = "highscores"
+        elif event.keysym == "2":
+            data.mode = "tutorial"
+            data.board = Board(4,1,0)
+            data.levelcount = 0
+            data.level = data.levelcount//3
+            data.stage = data.level % 3
+    
+    elif data.mode == "play":
         if event.keysym == "r":
             data.board.loadCleanBoard()
         elif event.keysym == "u":
@@ -500,40 +596,213 @@ def keyPressed(event, data):
             if data.board.isWon():
                 data.mode = "between levels"
     
-    if data.mode == "displaySolution":
+    elif data.mode == "tutorial":
+        if event.keysym == "r":
+            data.board.loadCleanBoard()
+        elif event.keysym == "u":
+            data.board.undoMove()
+        elif event.keysym == "s":
+            data.board.displaySolution()
+            data.mode = "displaySolutionTutorial"
+        else:
+            data.board.movePlayer(event.keysym)
+            if data.board.isWon():
+                data.mode = "tutorialComplete"
+    
+    elif data.mode in ["displaySolution","displaySolutionTutorial"]:
         if event.keysym == "n":
             try:
                 data.board.displaySolutionNextMove()
             except:
-                data.mode = "between levels"
-                
+                if data.mode == "displaySolutionTutorial":
+                    data.mode = "tutorialComplete"
+                else:
+                    data.mode = "endGame"
+                    data.levelcount -= 1
+                    data.level = data.levelcount//3
+                    data.stage = data.levelcount % 3
+                    
         elif event.keysym == "p":
             data.board.displaySolutionPrevMove()
                 
-    if data.mode == "between levels":
+    elif data.mode == "between levels":
         if event.keysym == "c":
             data.levelcount += 1
             data.level = data.levelcount//3
-            data.stage = data.level % 3
+            data.stage = data.levelcount % 3
             data.board = Board(9,2+int(data.level*0.67),data.level+1)
+            data.timeRemaining = 60 + data.timeRemaining//2
             data.mode = "play"
         
 def timerFired(data):
-    pass
-
+    if data.mode == "play":
+        data.timeRemaining-=1
+        if data.timeRemaining == "0":
+            data.mode = "endGame"
+            data.levelcount -= 1
+            data.level = data.levelcount//3
+            data.stage = data.levelcount % 3
+        
 def redrawAll(canvas, data):
     # draw in canvas
     s = data.gridSize
     m = data.margin
     canvas.create_rectangle(0,0,data.width+10,data.height+10,fill="yellow2")
     #background +10 to overcome tkinter framing issue
+    if data.mode == "startScreen":
+        canvas.create_text(data.width/2,data.height/8,text = "Sokoban Puzzle", font = "fixedsys 40")
+        canvas.create_rectangle(data.width/2-180,data.height/3-40-10, data.width/2+180,data.height/3+40-10, fill = "orange",width = 0)
+        canvas.create_rectangle(data.width/2-180,3.5*data.height/6-40-10, data.width/2+180,3.5*data.height/6+40-10, fill = "orange",width = 0)
+        canvas.create_rectangle(data.width/2-180,5*data.height/6-40-10, data.width/2+180,5*data.height/6+40-10, fill = "orange",width = 0)
+        
+        canvas.create_text(data.width/2+20,data.height/3-10,text = "Timed Challenge", font = "fixedsys 30")
+        canvas.create_text(data.width/2+20,3.5*data.height/6-10,text = "Select Level", font = "fixedsys 30")
+        canvas.create_text(data.width/2+20,5*data.height/6-10,text = "  How To Play\nand Highscores", font = "fixedsys 25")
+        
+        canvas.create_text(data.width/2-145,data.height/3-10,text = "(1)", font = "fixedsys 30")
+        canvas.create_text(data.width/2-145,3.5*data.height/6-10,text = "(2)", font = "fixedsys 30")
+        canvas.create_text(data.width/2-145,5*data.height/6-10,text = "(3)", font = "fixedsys 30")
+        
+        
+        
+        createMarginBoxesStart(canvas,data)
     
+    elif data.mode == "endGame":
+        if data.levelcount == -1:
+            canvas.create_text(data.width/2,2*data.height/7, text = "You completed nothing!", font = "fixedsys 30")
+        else:
+            canvas.create_text(data.width/2,2*data.height/7, text = "You completed level %d stage %d"%(data.level+1,data.stage+1), font = "fixedsys 30")
+            canvas.create_text(data.width/2,0.7*data.height/2, text = "Enter your name to record score", font = "fixedsys 30")
+            canvas.create_text(data.width/2,data.height/2, text = data.playerName, font = "fixedsys 30")
+            canvas.create_text(data.width/2,1.5*data.height/2, text = "Press 'Enter' to confirm name", font = "fixedsys 30")
+            
+        canvas.create_text(data.width/2,data.height/7, text = "Challenge Over", font = "fixedsys 40")
+        canvas.create_text(data.width/2,1.3*data.height/2, text = "Press 'Esc' to return to main menu", font = "fixedsys 30")
     
+    elif data.mode == "prePlay":
+        canvas.create_text(data.width/2,data.height/8,text = "Timed Challenge", font = "fixedsys 40")
+        t="""
+        In this challenge you have 60 seconds to complete each 
+        puzzle. Half of the time left over from the last
+        puzzle will get added to the next level.
+        
+        The puzzles will get harder as you advance through the levels.
+        Each level has 3 stages of similar difficulties. After 
+        completing the 3 stages, you advance to the next level, 
+        which will be more difficult.
+        
+        Get as far as you can before to timer runs to record your score!
+        Using 's' to show solution will end the run, using 'r' and 'u'
+        have no penalties.
+        
+        Press 'Enter' to begin the challenge
+        """
+        canvas.create_text(data.width/2,data.height/2, text = t, font = "fixedsys 21")
     
-    if data.mode in ["play","displaySolution"]:
+    elif data.mode == "howToPlay":
+        canvas.create_rectangle(data.width/8-80,7*data.height/8-60,data.width/8+80,7*data.height/8+60, fill = "orange",width=0)
+        canvas.create_rectangle(7*data.width/8-80,7*data.height/8-60,7*data.width/8+80,7*data.height/8+60, fill = "orange",width=0)
+        canvas.create_text(data.width/8,7*data.height/8+20, text = "Highscores", font = "fixedsys 25")
+        canvas.create_text(7*data.width/8,7*data.height/8+20, text = "Tutorial", font = "fixedsys 25")
+        canvas.create_text(data.width/8,7*data.height/8-20, text = "(1)", font = "fixedsys 25")
+        canvas.create_text(7*data.width/8,7*data.height/8-20, text = "(2)", font = "fixedsys 25")
+        canvas.create_rectangle(7*data.width/8-80,data.height/8-60,7*data.width/8+80,data.height/8+60, fill = "orange",width=0)
+        canvas.create_text(7*data.width/8,data.height/8+20, text = "Main Menu", font = "fixedsys 25")
+        canvas.create_text(7*data.width/8,data.height/8-20, text = "(Esc)", font = "fixedsys 25")
+        
+        canvas.create_image(data.width/2,7*data.height/8-50, image = data.arrowKeysImage)
+        canvas.create_text(data.width/2,7.5*data.height/8, text="Use arrow keys to move", font = "fixedsys 21")
+        
+        canvas.create_rectangle(data.width/4-25-20,data.height/7-25,data.width/4+25-20, data.height/7+25,fill="black")
+        canvas.create_text(data.width/4-20,data.height/7, text = "S", fill = "yellow2", font = "fixedsys 40")
+        canvas.create_text(data.width/4-10,2*data.height/7, text = "Press 's' to view the solution\nto the puzzle, in the Timed\nChallenge this ends the run", font = "fixedsys 21")
+        
+        canvas.create_rectangle(data.width/8-25,data.height/2-25-30,data.width/8+25,data.height/2+25-30, fill = "black")
+        canvas.create_text(data.width/8, data.height/2-30, text = "P", font = "fixedsys 40", fill = "yellow2")
+        canvas.create_rectangle(2*data.width/8-25,data.height/2-25-30,2*data.width/8+25,data.height/2+25-30, fill = "black")
+        canvas.create_text(2*data.width/8, data.height/2-30, text = "N", font = "fixedsys 40", fill = "yellow2")
+        canvas.create_text(data.width/4-20,4.3*data.height/7, text = "When viewing the solution\nuse the 'p' and 'n' keys\nto view the previous and\nnext steps of the puzzle", font = "fixedsys 21")
+        
+        canvas.create_rectangle(2.5*data.width/4-25-20,data.height/7-25,2.5*data.width/4+25-20, data.height/7+25,fill="black")
+        canvas.create_text(2.5*data.width/4-20,data.height/7, text = "U", fill = "yellow2", font = "fixedsys 40")
+        canvas.create_text(2.5*data.width/4-10,2*data.height/7, text = "Press 'u' to undo the last\nbox pushing move", font = "fixedsys 21")
+    
+        canvas.create_rectangle(7*data.width/8-35-30,data.height/2-25-30,7*data.width/8+35-30,data.height/2+25-30, fill = "black")
+        canvas.create_text(7*data.width/8-30, data.height/2-30, text = "Esc", font = "fixedsys 30", fill = "yellow2")
+        canvas.create_text(7*data.width/8-30, 1.3*data.height/2-30, text = "Press 'Esc' anytime to\nreturn to main menu", font = "fixedsys 21")
+        
+        canvas.create_rectangle(5*data.width/8-25-55,data.height/2-25-30,5*data.width/8+25-55,data.height/2+25-30, fill = "black")
+        canvas.create_text(5*data.width/8-55, data.height/2-30, text = "R", font = "fixedsys 40", fill = "yellow2")
+        canvas.create_text(5*data.width/8-55, 1.3*data.height/2-30, text = "Press 'r' to reset the\npuzzle to starting state", font = "fixedsys 21")
+    
+    elif data.mode in ["play","displaySolution","tutorial","tutorialComplete","displaySolutionTutorial"]:
         createMarginBoxes(canvas,data,s,m)
-        canvas.create_text(0,0,text = "level : %d" % (data.level+1), anchor = NW)
-        canvas.create_text(420,0,text = "stage : %d" % (data.stage+1), anchor = NE)
+        
+        if data.mode in ["play","displaySolution"]:
+            canvas.create_text(6*data.width/8,data.height/8,text = "Level : %d" % (data.level+1), anchor = NW, font = "fixedsys 25")
+            canvas.create_text(6*data.width/8,2*data.height/8,text = "Stage : %d" % (data.stage+1), anchor = NW, font = "fixedsys 25")
+            canvas.create_text(6*data.width/8,3*data.height/8,text = "Moves : %d" % (len(data.board.playerMoves)), anchor = NW, font = "fixedsys 25")
+            if data.mode == "play":
+                canvas.create_text(6*data.width/8,4*data.height/8,text = "Time : %d" % (data.timeRemaining), anchor = NW, font = "fixedsys 25")
+            else:
+                t = """
+                Showing the solution
+                to the puzzle.
+                
+                Use 'p' and 'n'
+                to move through
+                the steps
+                """
+                numSteps = len(data.board.solution)
+                index = data.board.displaySolutionIndex
+                canvas.create_text(6.7*data.width/9, 5*data.height/8, text = t, font = "fixedsys 20")
+                canvas.create_text(7.5*data.width/9, 7*data.height/8-30, text = "%d steps in total"%numSteps, font = "fixedsys 20")
+                canvas.create_text(7.5*data.width/9, 7*data.height/8, text = "showing step %d"%index, font = "fixedsys 20")
+        
+        elif data.mode in ["tutorial","tutorialComplete","displaySolutionTutorial"]:
+            canvas.create_image(7*data.width/9,data.height/8, image = data.wallImage)
+            canvas.create_image(8*data.width/9,data.height/8, image = data.pathImage)
+            canvas.create_text(7*data.width/9,data.height/8+30, text = "wall", font = "fixedsys 15")
+            canvas.create_text(8*data.width/9,data.height/8+30, text = "pathway", font = "fixedsys 15")
+            canvas.create_image(7*data.width/9,2*data.height/8, image = data.boxImage)
+            canvas.create_image(8*data.width/9,2*data.height/8, image = data.goalImage)
+            canvas.create_text(7*data.width/9,2*data.height/8+30, text = "box", font = "fixedsys 15")
+            canvas.create_text(8*data.width/9,2*data.height/8+30, text = "goal", font = "fixedsys 15")
+            if data.mode == "displaySolutionTutorial":
+                t = """
+                Showing the solution
+                to the puzzle.
+                
+                Use 'p' and 'n'
+                to move through
+                the steps
+                """
+                numSteps = len(data.board.solution)
+                index = data.board.displaySolutionIndex
+                canvas.create_text(6.7*data.width/9, 4*data.height/8, text = t, font = "fixedsys 20")
+                canvas.create_text(7.5*data.width/9, 6*data.height/8, text = "%d steps in total"%numSteps, font = "fixedsys 20")
+                canvas.create_text(7.5*data.width/9, 6*data.height/8+30, text = "showing step %d"%index, font = "fixedsys 20")
+                
+            else:
+                t = """
+                The player and the box
+                can only be on pathways
+                or goals.
+                
+                The goal of the puzzle
+                is to push all the boxes
+                onto the goals.
+                
+                A box can only be pushed
+                if there is a pathway or
+                goal block behind it.
+                
+                Boxes can not be pushed
+                if a wall or another box
+                is blocking the way.
+                """
+                canvas.create_text(6.7*data.width/9, 5*data.height/8, text = t, font = "fixedsys 15")
+        
         
         for row in range(len(data.board.board)):
             for col in range(len(data.board.board[0])):
@@ -554,9 +823,16 @@ def redrawAll(canvas, data):
             
         canvas.create_image(m+data.board.playerPosition[1]*s, m+data.board.playerPosition[0]*s,
         image=data.playerImage, anchor=NW)
+        
+        if data.mode == "tutorialComplete":
+            canvas.create_rectangle(data.width/2-150,data.height/2-75,data.width/2+150,data.height/2+75, fill = "black")
+            canvas.create_text(data.width/2,data.height/2, text = "You completed the tutorial puzzle!\nPress 'Esc' to return to main menu", font = "fixedsys 10", fill = "yellow2")
     
     elif data.mode == "between levels":
-        canvas.create_text(210,210, text = "Press 'c' to continue", font = "Arial 15 bold")
+        canvas.create_text(data.width/2,data.height/7, text = "Level %d Stage %d complete"%(data.level+1,data.stage+1), font = "fixedsys 40")
+        canvas.create_text(data.width/2,0.7*data.height/2, text = "Press 'c' to continue", font = "fixedsys 40")
+        canvas.create_text(data.width/2,1.3*data.height/2, text = "      %d seconds remained\nadding %d seconds to next level"%(data.timeRemaining,data.timeRemaining//2), font = "fixedsys 30")
+        
         
     # elif data.mode == "loading":
     #     canvas.create_text(210,210, text = "Loading...", font = "Arial 15 bold")
@@ -569,7 +845,13 @@ def createMarginBoxes(canvas,data,s,m):
                     canvas.create_image(m+col*s,m+row*s, image=data.wallImage,
                     anchor = NW)
 
-
+def createMarginBoxesStart(canvas,data):
+    s=40
+    for row in range(14):
+        for col in range(19):
+            if row in [0,12,13] or col in [0,1,2,15,16,17,18]:
+                    canvas.create_image(col*s,row*s, image=data.wallImage,
+                    anchor = NW)
 
 
 
@@ -604,7 +886,7 @@ def run(width=300, height=300):
     data = Struct()
     data.width = width
     data.height = height
-    data.timerDelay = 100 # milliseconds
+    data.timerDelay = 1000 # milliseconds
     root = Tk()
     init(data)
     # create the root and the canvas
