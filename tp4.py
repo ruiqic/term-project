@@ -1,4 +1,13 @@
+#Rui Qi Chen ruiqic Term project
+#this file contains the bulk of the project
+#it has the class to build a board with all of its functions
+#it also has a class "Node" to build a tree with
+#it also has the socket client code and tkinter code
 # Updated Animation Starter Code #from 112 website
+
+import socket
+import threading
+from queue import Queue
 
 import string
 import time
@@ -7,11 +16,54 @@ from tkinter import *
 import tp2
 import copy
 
+#from Kyle's socket starter code
+
+HOST = "localhost" # put your IP address here if playing on multiple computers
+PORT = 50013
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def handleServerMsg(server, serverMsg):
+  server.setblocking(1)
+  msg = ""
+  command = ""
+  while True:
+    msg += server.recv(10).decode("UTF-8")
+    command = msg.split("\n")
+    while (len(command) > 1):
+      readyMsg = command[0]
+      msg = "\n".join(command[1:])
+      serverMsg.put(readyMsg)
+      command = msg.split("\n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #self.targetBoxPositions are the positions of the boxes to be moved by player
 
 class Board(object):
-    def __init__(self,blocks, numGoals, level):
+    def __init__(self,blocks, numGoals, level, seed = None):
         #create object board based on number of 3x3 block
+        if seed != None:
+            random.seed(seed)
         self.playerMoves = []
         self.playerMoveCount = 0
         self.displaySolutionIndex = None
@@ -471,6 +523,7 @@ def writeFile(path, contents):
 
 def init(data):
     # load data.xyz as appropriate
+    data.timerCount = 0
     importImages(data)
     data.margin = 80
     data.gridSize = 40
@@ -516,6 +569,13 @@ def importImages(data):
     data.boxImage = PhotoImage(file = "box.gif")
     data.goalImage = PhotoImage(file = "goal.gif")
     data.arrowKeysImage = PhotoImage(file = "arrowKeys.gif")
+    
+    data.playerImageSmall = PhotoImage(file="playerSmall.gif")
+    data.wallImageSmall = PhotoImage(file="brickSmall.gif")
+    data.pathImageSmall = PhotoImage(file="floorSmall.gif")
+    data.boxImageSmall = PhotoImage(file = "boxSmall.gif")
+    data.goalImageSmall = PhotoImage(file = "goalSmall.gif")
+
 
 def mousePressed(event, data):
     # use event.x and event.y
@@ -585,7 +645,39 @@ def keyPressed(event, data):
             data.board = Board(9,2+int(data.level*0.7),data.level+1)
             data.timeRemaining = 60
             data.mode = "play"
-    
+####################
+        elif event.keysym == "m":
+            try: # cite: some lines of code from Kyle's starter socket code
+                server.connect((HOST,PORT))
+                print("connected to server")
+                serverMsg = Queue(100)
+                threading.Thread(target = handleServerMsg, args = (server, serverMsg)).start()
+                data.server = server
+                data.serverMsg = serverMsg
+                data.multiplayerLevel = random.randint(0,8)
+                data.seed = random.randint(0,10000)
+                seed = "seed " + str(data.seed) + " " + str(data.multiplayerLevel)+"\n"
+                data.server.send(seed.encode())
+                data.otherReady = {}
+                data.otherWinTimes = {}
+                data.myWinTimes = 0
+                data.imReady = False
+                data.otherStrangers = {}
+                data.mode = "multiplayerPre"
+            except:
+                data.mode = "multiplayerPre"
+                allReady = True
+                for PID in data.otherReady:
+                    if data.otherReady[PID] == False:
+                        allReady = False
+                        break
+                if allReady and data.imReady:
+                    data.mode = "multiplayerPlay"
+                    data.board = Board(9,2+int(data.multiplayerLevel*0.7),data.multiplayerLevel+1,data.seed)
+                    for PID in data.otherReady:
+                        data.otherStrangers[PID] = copy.deepcopy(data.board)
+                    
+###################
     elif data.mode == "howToPlay":
         if event.keysym == "1":
             data.mode = "highscores"
@@ -653,15 +745,132 @@ def keyPressed(event, data):
             data.board = Board(9,2+int(data.level*0.67),data.level+1)
             data.timeRemaining = 60 + data.timeRemaining//2
             data.mode = "play"
+    
+    elif data.mode == "multiplayerPre": #cite: format from Kyle's socket code
+        msg = ""
+        if event.keysym == "Return":
+            data.imReady = not data.imReady
+            msg = "playerReadyStatus change\n"
+            
+        if (msg != ""): 
+            print ("sending: ", msg,)
+            data.server.send(msg.encode())
         
+        allReady = True
+        for PID in data.otherReady:
+            if data.otherReady[PID] == False:
+                allReady = False
+                break
+        if allReady and data.imReady:
+            data.mode = "multiplayerPlay"
+            data.board = Board(9,2+int(data.multiplayerLevel*0.7),data.multiplayerLevel+1,data.seed)
+            for PID in data.otherReady:
+                data.otherStrangers[PID] = copy.deepcopy(data.board)
+                
+    elif data.mode == "multiplayerPlay":
+        msg = ""
+        if event.keysym in ["Up", "Down", "Left", "Right"]:
+            move = event.keysym
+            data.board.movePlayer(move)
+            msg = "playerMoved %s\n" % move
+        elif event.keysym == "r":
+            data.board.loadCleanBoard()
+            msg = "playerReset reset\n"
+            
+        elif event.keysym == "u":
+            data.board.undoMove()
+            msg = "playerUndo undo\n"
+            
+        if (msg != ""): 
+            print ("sending: ", msg,)
+            data.server.send(msg.encode())
+        
+        if data.board.isWon():
+            data.winner = "You"
+            data.mode = "multiplayerWon"
+            data.myWinTimes += 1
+            data.imReady = False
+            for PID in data.otherReady:
+                data.otherReady[PID] = False
+            data.multiplayerLevel = random.randint(0,8)
+            data.seed = random.randint(0,10000)
+            seed = "seed " + str(data.seed) + " " + str(data.multiplayerLevel)+"\n"
+            data.server.send(seed.encode())
+
+    elif data.mode == "multiplayerWon":
+        if event.keysym == "Return":
+            data.mode = "multiplayerPre"
+
 def timerFired(data):
     if data.mode == "play":
-        data.timeRemaining-=1
-        if data.timeRemaining == "0":
-            data.mode = "endGame"
-            data.levelcount -= 1
-            data.level = data.levelcount//3
-            data.stage = data.levelcount % 3
+        data.timerCount+=1
+        if data.timerCount % 20 == 0:
+            data.timeRemaining-=1
+            if data.timeRemaining == "0":
+                data.mode = "endGame"
+                data.levelcount -= 1
+                data.level = data.levelcount//3
+                data.stage = data.levelcount % 3
+            
+    if data.mode in ["multiplayerPre", "multiplayerPlay"]:
+        #cite: from Kyle's lovely starter code
+        while (data.serverMsg.qsize() > 0):
+            msg = data.serverMsg.get(False)
+            try:
+                print("received: ", msg, "\n")
+                msg = msg.split()
+                command = msg[0]
+        
+                # if (command == "myIDis"):
+                # myPID = msg[1]
+                # data.me.changePID(myPID)
+        
+                if (command == "newPlayer"):
+                    newPID = msg[1]
+                    data.otherReady[newPID] = False
+                    data.otherWinTimes[newPID] = 0
+        
+                elif (command == "playerMoved"):
+                    PID = msg[1]
+                    move = msg[2]
+                    data.otherStrangers[PID].movePlayer(move)
+                    if data.otherStrangers[PID].isWon():
+                        data.winner = PID
+                        data.mode = "multiplayerWon"
+                        data.otherWinTimes[PID] += 1
+                        data.imReady = False
+                        for PID in data.otherReady:
+                            data.otherReady[PID] = False
+                    
+                elif command == "playerReset":
+                    PID = msg[1]
+                    data.otherStrangers[PID].loadCleanBoard()
+                    
+                elif command == "playerUndo":
+                    PID = msg[1]
+                    data.otherStrangers[PID].undoMove()
+                
+                elif (command == "playerReadyStatus"):
+                    PID = msg[1]
+                    data.otherReady[PID] = not data.otherReady[PID]
+                    allReady = True
+                    for PID in data.otherReady:
+                        if data.otherReady[PID] == False:
+                            allReady = False
+                            break
+                    if allReady and data.imReady:
+                        data.mode = "multiplayerPlay"
+                        data.board = Board(9,2+int(data.multiplayerLevel*0.7),data.multiplayerLevel+1,data.seed)
+                        for PID in data.otherReady:
+                            data.otherStrangers[PID] = copy.deepcopy(data.board)
+                    
+                elif (command == "seed"):
+                    data.seed = int(msg[2])
+                    data.multiplayerLevel = int(msg[3])
+                
+            except:
+                print("failed")
+            data.serverMsg.task_done()
         
 def redrawAll(canvas, data):
     # draw in canvas
@@ -675,7 +884,7 @@ def redrawAll(canvas, data):
         canvas.create_rectangle(data.width/2-180,3.5*data.height/6-40-10, data.width/2+180,3.5*data.height/6+40-10, fill = "orange",width = 0)
         canvas.create_rectangle(data.width/2-180,5*data.height/6-40-10, data.width/2+180,5*data.height/6+40-10, fill = "orange",width = 0)
         
-        canvas.create_text(data.width/2+20,data.height/3-10,text = "Timed Challenge", font = "fixedsys 30")
+        canvas.create_text(data.width/2+20,data.height/3-10,text = "Play!", font = "fixedsys 30")
         canvas.create_text(data.width/2+20,3.5*data.height/6-10,text = "Select Level", font = "fixedsys 30")
         canvas.create_text(data.width/2+20,5*data.height/6-10,text = "  How To Play\nand Highscores", font = "fixedsys 25")
         
@@ -694,6 +903,97 @@ def redrawAll(canvas, data):
         canvas.create_text(data.width/2,6*data.height/8, text = "Press 'Enter' to proceed", font = "fixedsys 30")
         canvas.create_text(data.width/2,7*data.height/8, text = "(Harder levels take longer to generate)", font = "fixedsys 30")
         
+    elif data.mode == "multiplayerPre":
+        canvas.create_text(data.width/2,data.height/8, text = "Multiplayer Lobby", font = "fixedsys 35")
+        canvas.create_text(0.6*data.width/4,2*data.height/8, text = "Player", font = "fixedsys 30")
+        canvas.create_text(2*data.width/4,2*data.height/8, text = "Wins", font = "fixedsys 30")
+        canvas.create_text(3.4*data.width/4,2*data.height/8, text = "Ready Status", font = "fixedsys 30")
+        
+        canvas.create_text(0.6*data.width/4,(3)*data.height/8, text = "You", font = "fixedsys 30")
+        canvas.create_text(2*data.width/4,3*data.height/8, text = "%d"%data.myWinTimes, font = "fixedsys 30")
+        canvas.create_text(3.4*data.width/4,(3)*data.height/8, text = str(data.imReady), font = "fixedsys 30")
+        i=0
+        canvas.create_text(data.width/2, 7*data.height/8, text = "seed=%d,level=%d"%(data.seed,data.multiplayerLevel), font = "fixedsys 30")
+        for PID in data.otherReady:
+            canvas.create_text(0.6*data.width/4,(4+i)*data.height/8, text = PID, font = "fixedsys 30")
+            canvas.create_text(2*data.width/4,(4+i)*data.height/8, text = "%d"%data.otherWinTimes[PID], font = "fixedsys 30")
+            canvas.create_text(3.4*data.width/4,(4+i)*data.height/8, text = str(data.otherReady[PID]), font = "fixedsys 30")
+            i+=1
+    
+    elif data.mode in ["multiplayerPlay","multiplayerWon"]:
+        m=40
+        mx = 12*40 #x margin to side
+        my = 7*40 #y margin from top
+        for row in range(len(data.board.board)):
+            for col in range(len(data.board.board[0])):
+                if data.board.board[row][col]== "p":
+                    canvas.create_image(m+col*s,m+row*s, image=data.pathImage,
+                    anchor = NW)
+                elif data.board.board[row][col] == "w":
+                    canvas.create_image(m+col*s,m+row*s, image=data.wallImage,
+                    anchor = NW)
+                elif data.board.board[row][col] == "g":
+                    canvas.create_image(m+col*s,m+row*s, image=data.goalImage,
+                    anchor = NW)
+        for box in data.board.boxes:
+            if box == None:
+                continue
+            canvas.create_image(m+box[1]*s, m+box[0]*s, image=data.boxImage,
+            anchor = NW)
+            
+        canvas.create_image(m+data.board.playerPosition[1]*s, m+data.board.playerPosition[0]*s,
+        image=data.playerImage, anchor=NW)
+        canvas.create_text(m+(s*9)/2, m+s*11, text = "You", font = "fixedsys 40")
+        
+        s=20 #new smaller size
+        i=0
+        for PID in data.otherStrangers:
+            board = data.otherStrangers[PID]
+            if i == 0:
+                for row in range(len(board.board)):
+                    for col in range(len(board.board[0])):
+                        if board.board[row][col]== "p":
+                            canvas.create_image(mx+col*s,m+row*s, image=data.pathImageSmall,
+                            anchor = NW)
+                        elif board.board[row][col] == "w":
+                            canvas.create_image(mx+col*s,m+row*s, image=data.wallImageSmall,
+                            anchor = NW)
+                        elif board.board[row][col] == "g":
+                            canvas.create_image(mx+col*s,m+row*s, image=data.goalImageSmall,
+                            anchor = NW)
+                for box in board.boxes:
+                    if box == None:
+                        continue
+                    canvas.create_image(mx+box[1]*s, m+box[0]*s, image=data.boxImageSmall,
+                    anchor = NW)
+                canvas.create_image(mx+board.playerPosition[1]*s, m+board.playerPosition[0]*s,
+                image=data.playerImageSmall, anchor=NW)
+                canvas.create_text(mx+(s*9)/2, m+s*10.5, text = "%s"%PID, font = "fixedsys 30")
+                i += 1
+            else:
+                for row in range(len(board.board)):
+                    for col in range(len(board.board[0])):
+                        if board.board[row][col]== "p":
+                            canvas.create_image(mx+col*s,my+row*s, image=data.pathImageSmall,
+                            anchor = NW)
+                        elif board.board[row][col] == "w":
+                            canvas.create_image(mx+col*s,my+row*s, image=data.wallImageSmall,
+                            anchor = NW)
+                        elif board.board[row][col] == "g":
+                            canvas.create_image(mx+col*s,my+row*s, image=data.goalImageSmall,
+                            anchor = NW)
+                for box in board.boxes:
+                    if box == None:
+                        continue
+                    canvas.create_image(mx+box[1]*s, my+box[0]*s, image=data.boxImageSmall,
+                    anchor = NW)
+                canvas.create_image(mx+board.playerPosition[1]*s, my+board.playerPosition[0]*s,
+                image=data.playerImageSmall, anchor=NW)
+                canvas.create_text(mx+(s*9)/2, my+s*10.5, text = "%s"%PID, font = "fixedsys 30")
+                
+        if data.mode == "multiplayerWon":
+            canvas.create_rectangle(data.width/2-150,data.height/2-75,data.width/2+150,data.height/2+75, fill = "black")
+            canvas.create_text(data.width/2,data.height/2, text = "%s won the round\nPress 'Enter' to return to lobby"%data.winner, font = "fixedsys 10", fill = "yellow2")
     
     elif data.mode == "highscores":
         canvas.create_text(data.width/2,data.height/8, text = "Highscores", font = "fixedsys 35")
@@ -719,7 +1019,7 @@ def redrawAll(canvas, data):
         canvas.create_text(data.width/2,1.3*data.height/2, text = "Press 'Esc' to return to main menu", font = "fixedsys 30")
     
     elif data.mode == "prePlay":
-        canvas.create_text(data.width/2,data.height/8,text = "Timed Challenge", font = "fixedsys 40")
+        canvas.create_text(data.width/2,data.height/8-30,text = "Timed Challenge", font = "fixedsys 30")
         t="""
         In this challenge you have 60 seconds to complete each 
         puzzle. Half of the time left over from the last
@@ -736,7 +1036,17 @@ def redrawAll(canvas, data):
         
         Press 'Enter' to begin the challenge
         """
-        canvas.create_text(data.width/2,data.height/2, text = t, font = "fixedsys 21")
+        canvas.create_text(data.width/2,data.height/2-100, text = t, font = "fixedsys 21")
+        canvas.create_text(data.width/2,3*data.height/4-50,text = "Multiplayer Race", font = "fixedsys 30")
+        s = """
+        In this mode you can play with up to 2 other players.
+        You will race each other to complete a randomly generated board.
+        The board will be the same for all players and you can see
+        other players' boards.
+        Press 'm' to enter the multiplayer lobby
+        (make sure to run the 'server' file first)
+        """
+        canvas.create_text(data.width/2,3*data.height/4+30, text = s, font = "fixedsys 21")
     
     elif data.mode == "howToPlay":
         canvas.create_rectangle(data.width/8-80,7*data.height/8-60,data.width/8+80,7*data.height/8+60, fill = "orange",width=0)
@@ -754,7 +1064,7 @@ def redrawAll(canvas, data):
         
         canvas.create_rectangle(data.width/4-25-20,data.height/7-25,data.width/4+25-20, data.height/7+25,fill="black")
         canvas.create_text(data.width/4-20,data.height/7, text = "S", fill = "yellow2", font = "fixedsys 40")
-        canvas.create_text(data.width/4-10,2*data.height/7, text = "Press 's' to view the solution\nto the puzzle, in the Timed\nChallenge this ends the run", font = "fixedsys 21")
+        canvas.create_text(data.width/4-10,2*data.height/7, text = "Press 's' to view the solution\nto the puzzle, in the Timed\nChallenge this ends the run\n(not available in multiplayer)", font = "fixedsys 21")
         
         canvas.create_rectangle(data.width/8-25,data.height/2-25-30,data.width/8+25,data.height/2+25-30, fill = "black")
         canvas.create_text(data.width/8, data.height/2-30, text = "P", font = "fixedsys 40", fill = "yellow2")
@@ -925,7 +1235,7 @@ def run(width=300, height=300):
     data = Struct()
     data.width = width
     data.height = height
-    data.timerDelay = 1000 # milliseconds
+    data.timerDelay = 50 # milliseconds
     root = Tk()
     init(data)
     # create the root and the canvas

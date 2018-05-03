@@ -1,3 +1,7 @@
+#Rui Qi Chen term project
+#This file has the code to create a board with walls and paths from
+#assembling given templates randomly
+
 import random
 import copy
     # "p" is pathway
@@ -132,7 +136,6 @@ def createBoard(blocks = 9):
     
     
     while nthPiece(board) != None:
-        print(nthPiece(board))
         nextPiece = findNextPiece(board, pieces)
         board[nthPiece(board)] = nextPiece
     
