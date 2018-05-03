@@ -616,12 +616,12 @@ def keyPressed(event, data):
         elif event.keysym == "3":
             data.mode = "howToPlay"
             
-    elif data.mode == "endGame":
+    elif data.mode == "endGame" and data.levelcount >=0:
         if event.keysym in string.printable:
             data.playerName += event.keysym
         elif event.keysym == "BackSpace":
             data.playerName = data.playerName[:-1]
-        elif event.keysym == "Return":
+        elif event.keysym == "Return" and data.playerName != "":
             writeHighscores("highscores.txt", data)
             data.mode = "startScreen"
         
@@ -643,7 +643,7 @@ def keyPressed(event, data):
             data.level = data.levelcount//3
             data.stage = data.levelcount % 3 
             data.board = Board(9,2+int(data.level*0.7),data.level+1)
-            data.timeRemaining = 60
+            data.timeRemaining = 30
             data.mode = "play"
 ####################
         elif event.keysym == "m":
@@ -743,7 +743,7 @@ def keyPressed(event, data):
             data.level = data.levelcount//3
             data.stage = data.levelcount % 3
             data.board = Board(9,2+int(data.level*0.67),data.level+1)
-            data.timeRemaining = 60 + data.timeRemaining//2
+            data.timeRemaining = 30 + data.timeRemaining//2
             data.mode = "play"
     
     elif data.mode == "multiplayerPre": #cite: format from Kyle's socket code
@@ -806,8 +806,9 @@ def timerFired(data):
         data.timerCount+=1
         if data.timerCount % 20 == 0:
             data.timeRemaining-=1
-            if data.timeRemaining == "0":
+            if data.timeRemaining == 0:
                 data.mode = "endGame"
+                print("endGame")
                 data.levelcount -= 1
                 data.level = data.levelcount//3
                 data.stage = data.levelcount % 3
@@ -1021,7 +1022,7 @@ def redrawAll(canvas, data):
     elif data.mode == "prePlay":
         canvas.create_text(data.width/2,data.height/8-30,text = "Timed Challenge", font = "fixedsys 30")
         t="""
-        In this challenge you have 60 seconds to complete each 
+        In this challenge you have 30 seconds to complete each 
         puzzle. Half of the time left over from the last
         puzzle will get added to the next level.
         

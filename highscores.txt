@@ -1,2 +1,3 @@
 Jim 10
 Fred 5
+Richie 1
