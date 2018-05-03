@@ -1036,7 +1036,7 @@ def redrawAll(canvas, data):
         
         Press 'Enter' to begin the challenge
         """
-        canvas.create_text(data.width/2,data.height/2-100, text = t, font = "fixedsys 21")
+        canvas.create_text(data.width/2,data.height/2-80, text = t, font = "fixedsys 21")
         canvas.create_text(data.width/2,3*data.height/4-50,text = "Multiplayer Race", font = "fixedsys 30")
         s = """
         In this mode you can play with up to 2 other players.
